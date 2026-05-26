@@ -84,16 +84,16 @@
                 <TextBlock Text="Расход" FontSize="16" FontWeight="Bold" Margin="0,0,0,8"/>
 
                 <TextBlock Text="Категория" Style="{StaticResource LabelStyle}"/>
-                <TextBox Text="{Binding SelectedExpense.Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBox Text="{Binding DraftExpense.Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <TextBlock Text="Сумма" Style="{StaticResource LabelStyle}"/>
-                <TextBox Text="{Binding SelectedExpense.Amount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"/>
+                <TextBox Text="{Binding DraftExpense.Amount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"/>
 
                 <TextBlock Text="Дата" Style="{StaticResource LabelStyle}"/>
-                <DatePicker SelectedDate="{Binding SelectedExpense.Date, Mode=TwoWay}"/>
+                <DatePicker SelectedDate="{Binding DraftExpense.Date, Mode=TwoWay}"/>
 
                 <TextBlock Text="Описание" Style="{StaticResource LabelStyle}"/>
-                <TextBox Text="{Binding SelectedExpense.Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox Text="{Binding DraftExpense.Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          AcceptsReturn="True" TextWrapping="Wrap" Height="60" VerticalScrollBarVisibility="Auto"/>
 
                 <Button Content="Добавить"

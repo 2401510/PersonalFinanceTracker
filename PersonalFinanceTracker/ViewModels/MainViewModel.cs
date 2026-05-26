@@ -25,6 +25,10 @@ public partial class MainViewModel : BaseViewModel
     [ObservableProperty]
     private ExpenseViewModel? _selectedExpense;
 
+    //форма ввода (правая панель): к ней привязаны TextBox'ы и DatePicker
+    [ObservableProperty]
+    private ExpenseViewModel _draftExpense = new() { Date = DateTime.Today };
+
     [ObservableProperty]
     private string? _filterCategory;
 
@@ -60,6 +64,29 @@ public partial class MainViewModel : BaseViewModel
         OnPropertyChanged(nameof(TotalAmount));
     }
 
+    // При выборе строки копируем её значения в форму, чтобы можно было редактировать
+    partial void OnSelectedExpenseChanged(ExpenseViewModel? value)
+    {
+        if (value is null)
+            return;
+
+        DraftExpense = new ExpenseViewModel
+        {
+            Id = value.Id,
+            Category = value.Category,
+            Amount = value.Amount,
+            Date = value.Date,
+
+            Description = value.Description
+        };
+    }
+
+    //сброс формы к пустой записи на сегодня
+    private void ResetDraft()
+    {
+        DraftExpense = new ExpenseViewModel { Date = DateTime.Today };
+    }
+
     private void RefreshCategories()
     {
         //собираем категории и из расходов, и из репозитория категорий
@@ -85,7 +112,7 @@ public partial class MainViewModel : BaseViewModel
             Expenses.Add(ExpenseViewModel.FromModel(expense));
     }
 
-    //проверка лимита по категории и предупреждение при превышении
+    // Проверка лимита по категории и предупреждение при превышении
     private void CheckCategoryLimit(string? categoryName)
     {
         if (string.IsNullOrWhiteSpace(categoryName))
@@ -113,17 +140,22 @@ public partial class MainViewModel : BaseViewModel
     [RelayCommand]
     private void AddExpense()
     {
+        //берём значения из формы (DraftExpense), а не создаём пустую запись
         var newExpense = new Expense
         {
             Id = Guid.NewGuid(),
-            Date = DateTime.Today,
-            Category = FilterCategory ?? string.Empty
+            Category = DraftExpense.Category,
+            Amount = DraftExpense.Amount,
+            Date = DraftExpense.Date,
+            Description = DraftExpense.Description
         };
         _expenseRepository.Add(newExpense);
 
-        var vm = ExpenseViewModel.FromModel(newExpense);
-        Expenses.Add(vm);
-        SelectedExpense = vm;
+        Expenses.Add(ExpenseViewModel.FromModel(newExpense));
+
+        //сбрасываем выбор и форму, чтобы можно было сразу ввести следующую запись
+        SelectedExpense = null;
+        ResetDraft();
 
         RefreshCategories();
         CheckCategoryLimit(newExpense.Category);
@@ -134,6 +166,12 @@ public partial class MainViewModel : BaseViewModel
     {
         if (expense is null)
             return;
+
+        // Применяем значения из формы к выбранной записи
+        expense.Category = DraftExpense.Category;
+        expense.Amount = DraftExpense.Amount;
+        expense.Date = DraftExpense.Date;
+        expense.Description = DraftExpense.Description;
 
         _expenseRepository.Update(expense.ToModel());
 
@@ -154,6 +192,7 @@ public partial class MainViewModel : BaseViewModel
         if (ReferenceEquals(SelectedExpense, expense))
             SelectedExpense = null;
 
+        ResetDraft();
         RefreshCategories();
     }
 
@@ -178,7 +217,7 @@ public partial class MainViewModel : BaseViewModel
     [RelayCommand]
     private void ShowStatistics()
     {
-        //строим статистику по тому, что сейчас видит пользователь (с учётом фильтра)
+        // Строим статистику по тому, что сейчас видит пользователь (с учётом фильтра)
         var snapshot = Expenses.Select(vm => vm.ToModel()).ToList();
         var statsVm = new StatisticsViewModel(snapshot, _analytics);
 
@@ -253,7 +292,7 @@ public partial class MainViewModel : BaseViewModel
         ReplaceAll(imported);
     }
 
-    //полная замена содержимого репозитория импортированными данными
+    // Полная замена содержимого репозитория импортированными данными
     private void ReplaceAll(IEnumerable<Expense> imported)
     {
         foreach (var e in _expenseRepository.GetAll().ToList())
