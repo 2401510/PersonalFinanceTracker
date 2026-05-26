@@ -13,10 +13,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-
         var expenseRepository = new ExpenseRepository();
+        var categoryRepository = new CategoryRepository();
         var analytics = new ExpenseAnalyticsService();
+        var importExport = new ImportExportService();
 
-        DataContext = new MainViewModel(expenseRepository, analytics);
+        DataContext = new MainViewModel(expenseRepository, categoryRepository, analytics, importExport);
     }
 }

@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using PersonalFinanceTracker.Models;
 using PersonalFinanceTracker.Repositories;
 using PersonalFinanceTracker.Services;
+using PersonalFinanceTracker;
 
 namespace PersonalFinanceTracker.ViewModels;
 
@@ -12,12 +15,11 @@ namespace PersonalFinanceTracker.ViewModels;
 public partial class MainViewModel : BaseViewModel
 {
     private readonly IExpenseRepository _expenseRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly ExpenseAnalyticsService _analytics;
+    private readonly ImportExportService _importExport;
 
-    //список расходов, видимый в ui с учётом фильтра
     public ObservableCollection<ExpenseViewModel> Expenses { get; } = new();
-
-    //список названий категорий для выпадающего списка
     public ObservableCollection<string> Categories { get; } = new();
 
     [ObservableProperty]
@@ -32,17 +34,24 @@ public partial class MainViewModel : BaseViewModel
     [ObservableProperty]
     private DateTime? _dateTo;
 
-    //общая сумма расходов из текущего отфильтрованного списка
-    public decimal TotalAmount => _analytics.GetTotalAmount(Expenses.Select(vm => vm.ToModel()));
+    public decimal TotalAmount =>
+        _analytics.GetTotalAmount(Expenses.Select(vm => vm.ToModel()));
 
-    public MainViewModel(IExpenseRepository expenseRepository, ExpenseAnalyticsService analytics)
+    public MainViewModel(
+        IExpenseRepository expenseRepository,
+        ICategoryRepository categoryRepository,
+        ExpenseAnalyticsService analytics,
+        ImportExportService importExport)
     {
         _expenseRepository = expenseRepository;
+        _categoryRepository = categoryRepository;
         _analytics = analytics;
+        _importExport = importExport;
 
         ReloadExpenses(_expenseRepository.GetAll());
         RefreshCategories();
 
+        //пересчёт TotalAmount при изменении коллекции
         Expenses.CollectionChanged += OnExpensesChanged;
     }
 
@@ -53,9 +62,14 @@ public partial class MainViewModel : BaseViewModel
 
     private void RefreshCategories()
     {
-        var distinct = _expenseRepository.GetAll()
+        //собираем категории и из расходов, и из репозитория категорий
+        var fromExpenses = _expenseRepository.GetAll()
             .Select(e => e.Category)
-            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Where(c => !string.IsNullOrWhiteSpace(c));
+        var fromCategoryRepo = _categoryRepository.GetAll().Select(c => c.Name);
+
+        var distinct = fromExpenses
+            .Concat(fromCategoryRepo)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -69,6 +83,31 @@ public partial class MainViewModel : BaseViewModel
         Expenses.Clear();
         foreach (var expense in source)
             Expenses.Add(ExpenseViewModel.FromModel(expense));
+    }
+
+    //проверка лимита по категории и предупреждение при превышении
+    private void CheckCategoryLimit(string? categoryName)
+    {
+        if (string.IsNullOrWhiteSpace(categoryName))
+            return;
+
+        var category = _categoryRepository.GetAll()
+            .FirstOrDefault(c => string.Equals(c.Name, categoryName, StringComparison.OrdinalIgnoreCase));
+
+        if (category?.LimitAmount is not decimal limit)
+            return;
+
+        var spent = _analytics.GetTotalAmount(
+            _analytics.FilterByCategory(_expenseRepository.GetAll(), categoryName));
+
+        if (spent > limit)
+        {
+            MessageBox.Show(
+                $"Расходы по категории «{categoryName}» ({spent:N2}) превысили лимит ({limit:N2}).",
+                "Превышение лимита",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     [RelayCommand]
@@ -87,6 +126,7 @@ public partial class MainViewModel : BaseViewModel
         SelectedExpense = vm;
 
         RefreshCategories();
+        CheckCategoryLimit(newExpense.Category);
     }
 
     [RelayCommand]
@@ -99,6 +139,7 @@ public partial class MainViewModel : BaseViewModel
 
         RefreshCategories();
         OnPropertyChanged(nameof(TotalAmount));
+        CheckCategoryLimit(expense.Category);
     }
 
     [RelayCommand]
@@ -124,9 +165,104 @@ public partial class MainViewModel : BaseViewModel
         if (!string.IsNullOrWhiteSpace(FilterCategory))
             filtered = _analytics.FilterByCategory(filtered, FilterCategory);
 
-        if (DateFrom.HasValue && DateTo.HasValue)
-            filtered = _analytics.FilterByDateRange(filtered, DateFrom.Value, DateTo.Value);
+        if (DateFrom.HasValue || DateTo.HasValue)
+        {
+            var from = DateFrom ?? DateTime.MinValue;
+            var to = DateTo ?? DateTime.MaxValue;
+            filtered = _analytics.FilterByDateRange(filtered, from, to);
+        }
 
         ReloadExpenses(filtered);
+    }
+
+    [RelayCommand]
+    private void ShowStatistics()
+    {
+        //строим статистику по тому, что сейчас видит пользователь (с учётом фильтра)
+        var snapshot = Expenses.Select(vm => vm.ToModel()).ToList();
+        var statsVm = new StatisticsViewModel(snapshot, _analytics);
+
+        var window = new StatisticsWindow(statsVm)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        window.ShowDialog();
+    }
+
+    [RelayCommand]
+    private void ExportJson()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = ".json",
+            FileName = "expenses.json"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _importExport.ExportToJson(_expenseRepository.GetAll(), dialog.FileName);
+    }
+
+    [RelayCommand]
+    private void ImportJson()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = ".json"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var imported = _importExport.ImportFromJson(dialog.FileName);
+        ReplaceAll(imported);
+    }
+
+    [RelayCommand]
+    private void ExportCsv()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            DefaultExt = ".csv",
+            FileName = "expenses.csv"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _importExport.ExportToCsv(_expenseRepository.GetAll(), dialog.FileName);
+    }
+
+    [RelayCommand]
+    private void ImportCsv()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            DefaultExt = ".csv"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var imported = _importExport.ImportFromCsv(dialog.FileName);
+        ReplaceAll(imported);
+    }
+
+    //полная замена содержимого репозитория импортированными данными
+    private void ReplaceAll(IEnumerable<Expense> imported)
+    {
+        foreach (var e in _expenseRepository.GetAll().ToList())
+            _expenseRepository.Delete(e.Id);
+
+        foreach (var e in imported)
+            _expenseRepository.Add(e);
+
+        ApplyFilter();
+        RefreshCategories();
     }
 }
