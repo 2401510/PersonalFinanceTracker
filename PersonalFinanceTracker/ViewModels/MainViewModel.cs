@@ -197,6 +197,15 @@ public partial class MainViewModel : BaseViewModel
     }
 
     [RelayCommand]
+    private void ResetFilter()
+    {
+        FilterCategory = null;
+        DateFrom = null;
+        DateTo = null;
+        ApplyFilter();
+    }
+
+    [RelayCommand]
     private void ApplyFilter()
     {
         var filtered = _expenseRepository.GetAll();

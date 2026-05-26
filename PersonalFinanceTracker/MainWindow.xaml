@@ -51,6 +51,9 @@
                         Command="{Binding ApplyFilterCommand}"
                         Margin="0,16,0,0"/>
 
+                <Button Content="Сбросить фильтр"
+                        Command="{Binding ResetFilterCommand}"/>
+
                 <Separator Margin="0,16,0,8"/>
 
                 <TextBlock Text="Итого" Style="{StaticResource LabelStyle}"/>
@@ -112,13 +115,79 @@
 
         <Border Grid.Row="1" Grid.ColumnSpan="3" Margin="0,12,0,0"
                 Background="#F7F7F9" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="8">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Статистика"   Command="{Binding ShowStatisticsCommand}" Margin="0,0,16,0"/>
-                <Button Content="Экспорт JSON" Command="{Binding ExportJsonCommand}" Margin="0,0,8,0"/>
-                <Button Content="Импорт JSON"  Command="{Binding ImportJsonCommand}" Margin="0,0,8,0"/>
-                <Button Content="Экспорт CSV"  Command="{Binding ExportCsvCommand}"  Margin="0,0,8,0"/>
-                <Button Content="Импорт CSV"   Command="{Binding ImportCsvCommand}"/>
-            </StackPanel>
+            <DockPanel LastChildFill="False">
+                <Button DockPanel.Dock="Left"
+                        Content="Статистика"
+                        Command="{Binding ShowStatisticsCommand}"/>
+
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Grid x:Name="ExportGroup" Width="120" Margin="0,0,8,0" Background="Transparent">
+                        <Button Content="Экспорт">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=ExportGroup}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Grid>
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=ExportGroup}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="JSON" MinWidth="0" Command="{Binding ExportJsonCommand}"/>
+                            <Button Grid.Column="2" Content="CSV"  MinWidth="0" Command="{Binding ExportCsvCommand}"/>
+                        </Grid>
+                    </Grid>
+
+                    <Grid x:Name="ImportGroup" Width="120" Background="Transparent">
+                        <Button Content="Импорт">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=ImportGroup}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Grid>
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=ImportGroup}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="JSON" MinWidth="0" Command="{Binding ImportJsonCommand}"/>
+                            <Button Grid.Column="2" Content="CSV"  MinWidth="0" Command="{Binding ImportCsvCommand}"/>
+                        </Grid>
+                    </Grid>
+                </StackPanel>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>
