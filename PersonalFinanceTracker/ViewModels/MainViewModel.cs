@@ -178,6 +178,9 @@ public partial class MainViewModel : BaseViewModel
         RefreshCategories();
         OnPropertyChanged(nameof(TotalAmount));
         CheckCategoryLimit(expense.Category);
+
+        SelectedExpense = null;
+        ResetDraft();
     }
 
     [RelayCommand]
