@@ -94,8 +94,25 @@
             <StackPanel>
                 <TextBlock Text="Расход" FontSize="16" FontWeight="Bold" Margin="0,0,0,8"/>
 
-                <TextBlock Text="Категория" Style="{StaticResource LabelStyle}"/>
-                <TextBox Text="{Binding DraftExpense.Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Категория" Style="{StaticResource LabelStyle}"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Лимит"     Style="{StaticResource LabelStyle}"/>
+
+                    <TextBox Grid.Row="1" Grid.Column="0"
+                             Text="{Binding DraftExpense.Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Grid.Row="1" Grid.Column="2"
+                             Text="{Binding DraftLimit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=N2, TargetNullValue=''}"/>
+                </Grid>
 
                 <TextBlock Text="Сумма" Style="{StaticResource LabelStyle}"/>
                 <TextBox Text="{Binding DraftExpense.Amount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"/>

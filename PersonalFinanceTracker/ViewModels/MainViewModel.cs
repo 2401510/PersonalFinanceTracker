@@ -29,6 +29,10 @@ public partial class MainViewModel : BaseViewModel
     [ObservableProperty]
     private ExpenseViewModel _draftExpense = new() { Date = DateTime.Today };
 
+    // Лимит расходов для категории
+    [ObservableProperty]
+    private decimal? _draftLimit;
+
     [ObservableProperty]
     private string? _filterCategory;
 
@@ -79,12 +83,18 @@ public partial class MainViewModel : BaseViewModel
 
             Description = value.Description
         };
+
+        // подтягиваем текущий лимит выбранной категории если есть
+        DraftLimit = _categoryRepository.GetAll()
+            .FirstOrDefault(c => string.Equals(c.Name, value.Category, StringComparison.OrdinalIgnoreCase))
+            ?.LimitAmount;
     }
 
     //сброс формы к пустой записи на сегодня
     private void ResetDraft()
     {
         DraftExpense = new ExpenseViewModel { Date = DateTime.Today };
+        DraftLimit = null;
     }
 
     private void RefreshCategories()
@@ -137,6 +147,31 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
+    //создает категорию или обновляет ее лимит если категория уже есть
+    private void UpsertCategory(string? categoryName, decimal? limit)
+    {
+        if (string.IsNullOrWhiteSpace(categoryName))
+            return;
+
+        var category = _categoryRepository.GetAll()
+            .FirstOrDefault(c => string.Equals(c.Name, categoryName, StringComparison.OrdinalIgnoreCase));
+
+        if (category is null)
+        {
+            _categoryRepository.Add(new Category
+            {
+                Name = categoryName,
+                LimitAmount = limit
+            });
+        }
+        else if (limit.HasValue)
+        {
+            //обновляем лимит только если пользователь явно ввел значение
+            category.LimitAmount = limit;
+            _categoryRepository.Update(category);
+        }
+    }
+
     [RelayCommand]
     private void AddExpense()
     {
@@ -152,6 +187,8 @@ public partial class MainViewModel : BaseViewModel
         _expenseRepository.Add(newExpense);
 
         Expenses.Add(ExpenseViewModel.FromModel(newExpense));
+
+        UpsertCategory(newExpense.Category, DraftLimit);
 
         //сбрасываем выбор и форму, чтобы можно было сразу ввести следующую запись
         SelectedExpense = null;
@@ -174,6 +211,8 @@ public partial class MainViewModel : BaseViewModel
         expense.Description = DraftExpense.Description;
 
         _expenseRepository.Update(expense.ToModel());
+
+        UpsertCategory(expense.Category, DraftLimit);
 
         RefreshCategories();
         OnPropertyChanged(nameof(TotalAmount));
